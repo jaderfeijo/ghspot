@@ -68,21 +68,26 @@ same() { [[ -f $2 ]] && cmp -s "$1" "$2"; }
 # ---- end of contract boilerplate ----
 
 BIN="$HOME/.local/bin/ghspot"
+# A working go: the one on PATH, or (when that is a mise shim with no version chosen) mise's newest, without
+# changing your mise config. go.mod's toolchain line makes either fetch the Go it needs.
+GO=()
+if go version >/dev/null 2>&1; then GO=(go)
+elif command -v mise >/dev/null; then GO=(mise exec go@latest -- go); fi
 
 case $MODE in
   status) if [[ -f $BIN ]]; then [[ -f $STATE/version ]] && recorded || echo "installed unknown"; else echo absent; fi ;;
-  check) command -v go >/dev/null || { echo "Needs Go (mise use -g go, or pacman -S go)."; exit 3; }; exit 0 ;;
+  check) ((${#GO[@]})) || { echo "Needs Go (pacman -S go, or mise)."; exit 3; }; exit 0 ;;
   uninstall) run rm -f "$BIN"; forget; echo "Removed ghspot." ;;
   install)
     guard
-    command -v go >/dev/null || { echo "Needs Go (mise use -g go, or pacman -S go)." >&2; exit 1; }
+    ((${#GO[@]})) || { echo "Needs Go (pacman -S go, or mise)." >&2; exit 1; }
     here=""; [[ -n ${BASH_SOURCE[0]:-} && -f ${BASH_SOURCE[0]} ]] && here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
     if [[ -n $here && -f $here/go.mod ]]; then
       echo "Building $here"
-      ( cd "$here" && run go build -trimpath -o "$BIN" . )
+      ( cd "$here" && run "${GO[@]}" build -trimpath -o "$BIN" . )
     else
       echo "Building github.com/jaderfeijo/ghspot@main"
-      run env GOBIN="$(dirname "$BIN")" go install github.com/jaderfeijo/ghspot@main
+      GOBIN="$(dirname "$BIN")" run "${GO[@]}" install github.com/jaderfeijo/ghspot@main
     fi
     command -v gh >/dev/null && gh auth status >/dev/null 2>&1 || echo "Note: ghspot needs the GitHub CLI logged in (gh auth login)."
     record; echo "Done. Run ghspot inside a git repo." ;;
