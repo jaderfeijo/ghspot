@@ -64,6 +64,12 @@ until you ask for it.
 You need the [GitHub CLI](https://cli.github.com) logged in (`gh auth login`).
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/jaderfeijo/ghspot/main/install.sh | bash
+```
+
+(builds it with Go into `~/.local/bin`; `... | bash -s -- --uninstall` removes it), or with Go directly:
+
+```sh
 go install github.com/jaderfeijo/ghspot@latest
 ```
 
