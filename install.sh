@@ -29,6 +29,7 @@ run() { if ((DRY)); then echo "[dry-run] $*"; else "$@"; fi; }
 omarchy_version() { echo "${OMAKIT_OMARCHY_VERSION:-$(pacman -Q omarchy 2>/dev/null | awk '{print $2}' | sed 's/-[0-9]*$//')}"; }
 # Refuse outside OMARCHY_MIN..OMARCHY_MAX (unless --force); warn above OMARCHY_TESTED.
 guard() {
+  [[ $(uname -s) == Darwin ]] && return 0   # macOS: no Omarchy to check
   local v bad=0; v=$(omarchy_version)
   if [[ -z $v ]]; then echo "Omarchy not found (pacman -Q omarchy)." >&2; ((FORCE)) || exit 1; return 0; fi
   [[ -n $OMARCHY_MIN ]] && (( $(vercmp "$v" "$OMARCHY_MIN") < 0 )) && bad=1
@@ -73,14 +74,15 @@ BIN="$HOME/.local/bin/ghspot"
 GO=()
 if go version >/dev/null 2>&1; then GO=(go)
 elif command -v mise >/dev/null; then GO=(mise exec go@latest -- go); fi
+if [[ $(uname -s) == Darwin ]]; then NEEDS_GO="Needs Go (brew install go, or mise)."; else NEEDS_GO="Needs Go (pacman -S go, or mise)."; fi
 
 case $MODE in
   status) if [[ -f $BIN ]]; then [[ -f $STATE/version ]] && recorded || echo "installed unknown"; else echo absent; fi ;;
-  check) ((${#GO[@]})) || { echo "Needs Go (pacman -S go, or mise)."; exit 3; }; exit 0 ;;
+  check) ((${#GO[@]})) || { echo "$NEEDS_GO"; exit 3; }; exit 0 ;;
   uninstall) run rm -f "$BIN"; forget; echo "Removed ghspot." ;;
   install)
     guard
-    ((${#GO[@]})) || { echo "Needs Go (pacman -S go, or mise)." >&2; exit 1; }
+    ((${#GO[@]})) || { echo "$NEEDS_GO" >&2; exit 1; }
     here=""; [[ -n ${BASH_SOURCE[0]:-} && -f ${BASH_SOURCE[0]} ]] && here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
     if [[ -n $here && -f $here/go.mod ]]; then
       echo "Building $here"
@@ -90,5 +92,6 @@ case $MODE in
       GOBIN="$(dirname "$BIN")" run "${GO[@]}" install github.com/jaderfeijo/ghspot@main
     fi
     command -v gh >/dev/null && gh auth status >/dev/null 2>&1 || echo "Note: ghspot needs the GitHub CLI logged in (gh auth login)."
+    case ":$PATH:" in *":$(dirname "$BIN"):"*) ;; *) echo "Note: add $(dirname "$BIN") to your PATH." ;; esac
     record; echo "Done. Run ghspot inside a git repo." ;;
 esac

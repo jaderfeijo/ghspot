@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -1040,6 +1041,9 @@ func ago(t time.Time) string {
 
 func openURL(u string) error {
 	name, args := "xdg-open", []string{u}
+	if runtime.GOOS == "darwin" {
+		name = "open"
+	}
 	if b := os.Getenv("BROWSER"); b != "" {
 		f := strings.Fields(b)
 		name, args = f[0], append(f[1:], u)
@@ -1055,7 +1059,10 @@ func openURL(u string) error {
 
 func copyText(s string) error {
 	name, args := "wl-copy", []string{}
-	if os.Getenv("WAYLAND_DISPLAY") == "" {
+	switch {
+	case runtime.GOOS == "darwin":
+		name = "pbcopy"
+	case os.Getenv("WAYLAND_DISPLAY") == "":
 		name, args = "xclip", []string{"-selection", "clipboard"}
 	}
 	cmd := exec.Command(name, args...)

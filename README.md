@@ -67,7 +67,8 @@ You need the [GitHub CLI](https://cli.github.com) logged in (`gh auth login`).
 curl -fsSL https://raw.githubusercontent.com/jaderfeijo/ghspot/main/install.sh | bash
 ```
 
-(builds it with Go into `~/.local/bin`; `... | bash -s -- --uninstall` removes it), or with Go directly:
+(builds it with Go into `~/.local/bin`; `... | bash -s -- --uninstall` removes it). It works on macOS
+and Linux; on macOS make sure `~/.local/bin` is on your `PATH`. Or with Go directly:
 
 ```sh
 go install github.com/jaderfeijo/ghspot@latest
@@ -130,7 +131,8 @@ ghspot -1 flaky test      # start with a query; quit after opening in the browse
 | `j` `k` · `space` `b` · `g` `G` | scroll, page, top / bottom |
 | `n` `p` | next / previous result |
 
-The browser is `$BROWSER` if set, otherwise `xdg-open`.
+The browser is `$BROWSER` if set, otherwise `open` on macOS and `xdg-open` on Linux.
+Copying uses `pbcopy` on macOS, `wl-copy` on Wayland and `xclip` on X11.
 
 ## Tip: bind it to a hotkey
 
