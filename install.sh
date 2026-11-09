@@ -27,11 +27,11 @@ done
 STATE="${STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/$ITEM_ID}"   # installers may keep an older state dir
 run() { if ((DRY)); then echo "[dry-run] $*"; else "$@"; fi; }
 omarchy_version() { echo "${OMAKIT_OMARCHY_VERSION:-$(pacman -Q omarchy 2>/dev/null | awk '{print $2}' | sed 's/-[0-9]*$//')}"; }
-# Refuse outside OMARCHY_MIN..OMARCHY_MAX (unless --force); warn above OMARCHY_TESTED.
+# On Omarchy: refuse outside OMARCHY_MIN..OMARCHY_MAX (unless --force); warn above OMARCHY_TESTED.
+# Anywhere else (macOS, Debian, other Linux, the BSDs) there is nothing to check.
 guard() {
-  [[ $(uname -s) == Darwin ]] && return 0   # macOS: no Omarchy to check
   local v bad=0; v=$(omarchy_version)
-  if [[ -z $v ]]; then echo "Omarchy not found (pacman -Q omarchy)." >&2; ((FORCE)) || exit 1; return 0; fi
+  [[ -z $v ]] && return 0
   [[ -n $OMARCHY_MIN ]] && (( $(vercmp "$v" "$OMARCHY_MIN") < 0 )) && bad=1
   [[ -n $OMARCHY_MAX ]] && (( $(vercmp "$v" "$OMARCHY_MAX") >= 0 )) && bad=1
   if ((bad)); then
@@ -61,7 +61,8 @@ recorded() { [[ -f $STATE/version ]] && echo "installed $(cat "$STATE/version")"
 place() {
   local s=$1 d=$2 m=$3 sudo=${4:-} how=Installed
   if [[ -f $d ]]; then cmp -s "$s" "$d" && how=Unchanged || how=Updated; fi
-  [[ $how == Unchanged ]] || run $sudo install -Dm"$m" "$s" "$d"
+  # mkdir + install -m rather than GNU-only install -D, so this works with BSD/macOS install too.
+  [[ $how == Unchanged ]] || { run $sudo mkdir -p "$(dirname "$d")" && run $sudo install -m "$m" "$s" "$d"; }
   echo "$how  $d"
 }
 # same SRC_FILE DEST: true when DEST is byte-identical to the shipped file
@@ -74,7 +75,20 @@ BIN="$HOME/.local/bin/ghspot"
 GO=()
 if go version >/dev/null 2>&1; then GO=(go)
 elif command -v mise >/dev/null; then GO=(mise exec go@latest -- go); fi
-if [[ $(uname -s) == Darwin ]]; then NEEDS_GO="Needs Go (brew install go, or mise)."; else NEEDS_GO="Needs Go (pacman -S go, or mise)."; fi
+# How to get Go, by platform. Any Go >= 1.21 works: go.mod's toolchain line fetches the newer Go it needs.
+case $(uname -s) in
+  Darwin) how="brew install go" ;;
+  FreeBSD|DragonFly) how="pkg install go" ;;
+  OpenBSD) how="pkg_add go" ;;
+  NetBSD) how="pkgin install go" ;;
+  *) if command -v pacman >/dev/null; then how="pacman -S go"
+     elif command -v apt-get >/dev/null; then how="sudo apt install golang-go"
+     elif command -v dnf >/dev/null; then how="sudo dnf install golang"
+     elif command -v zypper >/dev/null; then how="sudo zypper install go"
+     elif command -v apk >/dev/null; then how="apk add go"
+     else how="https://go.dev/dl"; fi ;;
+esac
+NEEDS_GO="Needs Go ($how, or mise)."
 
 case $MODE in
   status) if [[ -f $BIN ]]; then [[ -f $STATE/version ]] && recorded || echo "installed unknown"; else echo absent; fi ;;
@@ -86,6 +100,7 @@ case $MODE in
     here=""; [[ -n ${BASH_SOURCE[0]:-} && -f ${BASH_SOURCE[0]} ]] && here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
     if [[ -n $here && -f $here/go.mod ]]; then
       echo "Building $here"
+      run mkdir -p "$(dirname "$BIN")"
       ( cd "$here" && run "${GO[@]}" build -trimpath -o "$BIN" . )
     else
       echo "Building github.com/jaderfeijo/ghspot@main"

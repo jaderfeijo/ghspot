@@ -67,8 +67,8 @@ You need the [GitHub CLI](https://cli.github.com) logged in (`gh auth login`).
 curl -fsSL https://raw.githubusercontent.com/jaderfeijo/ghspot/main/install.sh | bash
 ```
 
-(builds it with Go into `~/.local/bin`; `... | bash -s -- --uninstall` removes it). It works on macOS
-and Linux; on macOS make sure `~/.local/bin` is on your `PATH`. Or with Go directly:
+(builds it with Go into `~/.local/bin`; `... | bash -s -- --uninstall` removes it). It works on macOS,
+Linux (any distro) and the BSDs, and needs only `bash` and Go; make sure `~/.local/bin` is on your `PATH`. Or with Go directly:
 
 ```sh
 go install github.com/jaderfeijo/ghspot@latest
